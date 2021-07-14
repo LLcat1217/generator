@@ -1,5 +1,5 @@
 /*
- *    Copyright 2006-2020 the original author or authors.
+ *    Copyright 2006-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -150,7 +150,7 @@ public abstract class IntrospectedTable {
         return tableConfiguration.getSelectByPrimaryKeyQueryId();
     }
 
-    public GeneratedKey getGeneratedKey() {
+    public Optional<GeneratedKey> getGeneratedKey() {
         return tableConfiguration.getGeneratedKey();
     }
 
@@ -657,8 +657,23 @@ public abstract class IntrospectedTable {
             return null;
         }
 
-        return config.getTargetPackage() +
-                fullyQualifiedTable.getSubPackageForClientOrSqlMap(isSubPackagesEnabled(config));
+        return config.getTargetPackage()
+                + fullyQualifiedTable.getSubPackageForClientOrSqlMap(isSubPackagesEnabled(config));
+    }
+
+    protected String calculateDynamicSqlSupportPackage() {
+        JavaClientGeneratorConfiguration config = context
+                .getJavaClientGeneratorConfiguration();
+        if (config == null) {
+            return null;
+        }
+
+        String packkage = config.getProperty(PropertyRegistry.CLIENT_DYNAMIC_SQL_SUPPORT_PACKAGE);
+        if (stringHasValue(packkage)) {
+            return packkage + fullyQualifiedTable.getSubPackageForClientOrSqlMap(isSubPackagesEnabled(config));
+        } else {
+            return calculateJavaClientInterfacePackage();
+        }
     }
 
     protected void calculateJavaClientAttributes() {
@@ -697,10 +712,18 @@ public abstract class IntrospectedTable {
         setMyBatis3SqlProviderType(sb.toString());
 
         sb.setLength(0);
-        sb.append(calculateJavaClientInterfacePackage());
+        sb.append(calculateDynamicSqlSupportPackage());
         sb.append('.');
-        sb.append(fullyQualifiedTable.getDomainObjectName());
-        sb.append("DynamicSqlSupport"); //$NON-NLS-1$
+        if (stringHasValue(tableConfiguration.getDynamicSqlSupportClassName())) {
+            sb.append(tableConfiguration.getDynamicSqlSupportClassName());
+        } else {
+            if (stringHasValue(fullyQualifiedTable.getDomainObjectSubPackage())) {
+                sb.append(fullyQualifiedTable.getDomainObjectSubPackage());
+                sb.append('.');
+            }
+            sb.append(fullyQualifiedTable.getDomainObjectName());
+            sb.append("DynamicSqlSupport"); //$NON-NLS-1$
+        }
         setMyBatisDynamicSqlSupportType(sb.toString());
     }
 
@@ -708,8 +731,8 @@ public abstract class IntrospectedTable {
         JavaModelGeneratorConfiguration config = context
                 .getJavaModelGeneratorConfiguration();
 
-        return config.getTargetPackage() +
-                fullyQualifiedTable.getSubPackageForModel(isSubPackagesEnabled(config));
+        return config.getTargetPackage()
+                + fullyQualifiedTable.getSubPackageForModel(isSubPackagesEnabled(config));
     }
 
     protected void calculateModelAttributes() {
@@ -732,7 +755,6 @@ public abstract class IntrospectedTable {
         sb.append(pakkage);
         sb.append('.');
         sb.append(fullyQualifiedTable.getDomainObjectName());
-        sb.append("Record"); //$NON-NLS-1$
         setKotlinRecordType(sb.toString());
 
         sb.setLength(0);
@@ -764,8 +786,8 @@ public abstract class IntrospectedTable {
             return calculateJavaModelPackage();
         }
 
-        return exampleTargetPackage +
-                fullyQualifiedTable.getSubPackageForModel(isSubPackagesEnabled(config));
+        return exampleTargetPackage
+                + fullyQualifiedTable.getSubPackageForModel(isSubPackagesEnabled(config));
     }
 
     protected String calculateSqlMapPackage() {

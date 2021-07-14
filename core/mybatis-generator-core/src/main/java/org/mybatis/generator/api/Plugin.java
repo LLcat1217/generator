@@ -1,5 +1,5 @@
 /*
- *    Copyright 2006-2020 the original author or authors.
+ *    Copyright 2006-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -211,8 +211,9 @@ public interface Plugin {
     }
 
     /**
-     * This method is called when the count method has been generated for the mapper interface.
-     * This method is only called in the MyBatis3DynamicSql runtime.
+     * This method is no longer called.
+     *
+     * @deprecated this method is no longer called
      *
      * @param method
      *     the generated count method
@@ -225,20 +226,38 @@ public interface Plugin {
      *         first plugin returning false will disable the calling of further
      *         plugins.
      */
+    @Deprecated
     default boolean clientBasicCountMethodGenerated(Method method, Interface interfaze,
                                                     IntrospectedTable introspectedTable) {
         return true;
     }
 
+    /**
+     * This method is no longer called.
+     *
+     * @deprecated this method is no longer called
+     *
+     * @param kotlinFunction
+     *     the generated function
+     * @param kotlinFile
+     *     the partially generated file
+     * @param introspectedTable
+     *     The class containing information about the table as introspected from the database
+     * @return true if the method should be generated, false if the generated
+     *         method should be ignored. In the case of multiple plugins, the
+     *         first plugin returning false will disable the calling of further
+     *         plugins.
+     */
+    @Deprecated
     default boolean clientBasicCountMethodGenerated(KotlinFunction kotlinFunction, KotlinFile kotlinFile,
             IntrospectedTable introspectedTable) {
         return true;
     }
 
     /**
-     * This method is called when the delete method has been generated for the mapper interface.
-     * This method is only called in the MyBatis3DynamicSql runtime.
+     * This method is no longer called.
      *
+     * @deprecated No longer called
      * @param method
      *     the generated delete method
      * @param interfaze
@@ -250,11 +269,28 @@ public interface Plugin {
      *         first plugin returning false will disable the calling of further
      *         plugins.
      */
+    @Deprecated
     default boolean clientBasicDeleteMethodGenerated(Method method, Interface interfaze,
                                                      IntrospectedTable introspectedTable) {
         return true;
     }
 
+    /**
+     * This method is no longer called.
+     *
+     * @deprecated No longer called
+     * @param kotlinFunction
+     *     the generated delete function
+     * @param kotlinFile
+     *     the partially generated file
+     * @param introspectedTable
+     *     The class containing information about the table as introspected from the database
+     * @return true if the method should be generated, false if the generated
+     *         method should be ignored. In the case of multiple plugins, the
+     *         first plugin returning false will disable the calling of further
+     *         plugins.
+     */
+    @Deprecated
     default boolean clientBasicDeleteMethodGenerated(KotlinFunction kotlinFunction, KotlinFile kotlinFile,
             IntrospectedTable introspectedTable) {
         return true;
@@ -262,7 +298,8 @@ public interface Plugin {
 
     /**
      * This method is called when the insert method has been generated for the mapper interface.
-     * This method is only called in the MyBatis3DynamicSql runtime.
+     * This method is only called in the MyBatis3DynamicSql runtime. This method is only
+     * called if the table has generated keys.
      *
      * @param method
      *     the generated insert method
@@ -280,6 +317,22 @@ public interface Plugin {
         return true;
     }
 
+    /**
+     * This method is called when the insert function has been generated for the mapper interface.
+     * This method is only called in the MyBatis3Kotlin runtime. This method is only
+     * called if the table has generated keys.
+     *
+     * @param kotlinFunction
+     *     the generated insert function
+     * @param kotlinFile
+     *     the partially generated file
+     * @param introspectedTable
+     *     The class containing information about the table as introspected from the database
+     * @return true if the function should be generated, false if the generated
+     *         function should be ignored. In the case of multiple plugins, the
+     *         first plugin returning false will disable the calling of further
+     *         plugins.
+     */
     default boolean clientBasicInsertMethodGenerated(KotlinFunction kotlinFunction, KotlinFile kotlinFile,
             IntrospectedTable introspectedTable) {
         return true;
@@ -287,7 +340,8 @@ public interface Plugin {
 
     /**
      * This method is called when the insert multiple method has been generated for the mapper interface.
-     * This method is only called in the MyBatis3DynamicSql runtime.
+     * This method is only called in the MyBatis3DynamicSql runtime. This method is only
+     * called if the table has generated keys.
      *
      * @param method
      *     the generated insert method
@@ -305,16 +359,31 @@ public interface Plugin {
         return true;
     }
 
+    /**
+     * This method is called when the insert multiple method has been generated for the mapper interface.
+     * This method is only called in the MyBatis3DynamicSql runtime. This method is only
+     * called if the table has generated keys.
+     *
+     * @param kotlinFunction
+     *     the generated insert function
+     * @param kotlinFile
+     *     the partially generated file
+     * @param introspectedTable
+     *     The class containing information about the table as introspected from the database
+     * @return true if the method should be generated, false if the generated
+     *         function should be ignored. In the case of multiple plugins, the
+     *         first plugin returning false will disable the calling of further
+     *         plugins.
+     */
     default boolean clientBasicInsertMultipleMethodGenerated(KotlinFunction kotlinFunction, KotlinFile kotlinFile,
             IntrospectedTable introspectedTable) {
         return true;
     }
 
     /**
-     * This method is called when the insert multiple method helper has been generated for the mapper interface.
-     * The helper method is only created when a multiple row insert has a generated key.
-     * This method is only called in the MyBatis3DynamicSql runtime.
+     * This method is no longer called.
      *
+     * @deprecated this method is no longer called
      * @param method
      *     the generated insert method
      * @param interfaze
@@ -326,11 +395,23 @@ public interface Plugin {
      *         first plugin returning false will disable the calling of further
      *         plugins.
      */
+    @Deprecated
     default boolean clientBasicInsertMultipleHelperMethodGenerated(Method method, Interface interfaze,
             IntrospectedTable introspectedTable) {
         return true;
     }
 
+    /**
+     * Unused legacy method.
+     *
+     * @deprecated this method is not longer called
+     *
+     * @param kotlinFunction generated function
+     * @param kotlinFile generated file
+     * @param introspectedTable introspected table
+     * @return true
+     */
+    @Deprecated
     default boolean clientBasicInsertMultipleHelperMethodGenerated(KotlinFunction kotlinFunction, KotlinFile kotlinFile,
             IntrospectedTable introspectedTable) {
         return true;
@@ -387,9 +468,9 @@ public interface Plugin {
     }
 
     /**
-     * This method is called when the update method has been generated for the mapper interface.
-     * This method is only called in the MyBatis3DynamicSql runtime.
+     * This method is no longer called.
      *
+     * @deprecated no longer called
      * @param method
      *     the generated update method
      * @param interfaze
@@ -401,11 +482,28 @@ public interface Plugin {
      *         first plugin returning false will disable the calling of further
      *         plugins.
      */
+    @Deprecated
     default boolean clientBasicUpdateMethodGenerated(Method method, Interface interfaze,
                                                      IntrospectedTable introspectedTable) {
         return true;
     }
 
+    /**
+     * This method is no longer called.
+     *
+     * @deprecated no longer called
+     * @param kotlinFunction
+     *     the generated update function
+     * @param kotlinFile
+     *     the partially generated file
+     * @param introspectedTable
+     *     The class containing information about the table as introspected from the database
+     * @return true if the method should be generated, false if the generated
+     *         method should be ignored. In the case of multiple plugins, the
+     *         first plugin returning false will disable the calling of further
+     *         plugins.
+     */
+    @Deprecated
     default boolean clientBasicUpdateMethodGenerated(KotlinFunction kotlinFunction, KotlinFile kotlinFile,
             IntrospectedTable introspectedTable) {
         return true;
@@ -1880,7 +1978,7 @@ public interface Plugin {
         return true;
     }
 
-    default boolean mapperGenerated(KotlinFile mapperFile, IntrospectedTable introspectedTable) {
+    default boolean mapperGenerated(KotlinFile mapperFile, KotlinType mapper, IntrospectedTable introspectedTable) {
         return true;
     }
 

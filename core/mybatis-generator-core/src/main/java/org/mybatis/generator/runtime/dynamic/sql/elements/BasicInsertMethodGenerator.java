@@ -1,5 +1,5 @@
 /*
- *    Copyright 2006-2020 the original author or authors.
+ *    Copyright 2006-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import org.mybatis.generator.api.dom.java.FullyQualifiedJavaType;
 import org.mybatis.generator.api.dom.java.Interface;
 import org.mybatis.generator.api.dom.java.Method;
 import org.mybatis.generator.api.dom.java.Parameter;
-import org.mybatis.generator.config.GeneratedKey;
 
 public class BasicInsertMethodGenerator extends AbstractMethodGenerator {
 
@@ -65,11 +64,10 @@ public class BasicInsertMethodGenerator extends AbstractMethodGenerator {
         MethodAndImports.Builder builder = MethodAndImports.withMethod(method)
                 .withImports(imports);
 
-        GeneratedKey gk = introspectedTable.getGeneratedKey();
-        if (gk != null) {
+        introspectedTable.getGeneratedKey().ifPresent(gk -> {
             MethodParts methodParts = fragmentGenerator.getGeneratedKeyAnnotation(gk);
             acceptParts(builder, method, methodParts);
-        }
+        });
 
         return builder.build();
     }

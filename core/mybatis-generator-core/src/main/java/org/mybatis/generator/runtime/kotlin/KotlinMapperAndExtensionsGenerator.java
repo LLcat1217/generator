@@ -1,5 +1,5 @@
 /*
- *    Copyright 2006-2020 the original author or authors.
+ *    Copyright 2006-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -25,14 +25,10 @@ import org.mybatis.generator.api.dom.kotlin.KotlinFile;
 import org.mybatis.generator.api.dom.kotlin.KotlinType;
 import org.mybatis.generator.codegen.AbstractKotlinGenerator;
 import org.mybatis.generator.runtime.kotlin.elements.AbstractKotlinFunctionGenerator;
-import org.mybatis.generator.runtime.kotlin.elements.BasicCountMethodGenerator;
-import org.mybatis.generator.runtime.kotlin.elements.BasicDeleteMethodGenerator;
 import org.mybatis.generator.runtime.kotlin.elements.BasicInsertMethodGenerator;
-import org.mybatis.generator.runtime.kotlin.elements.BasicMultipleInsertHelperMethodGenerator;
 import org.mybatis.generator.runtime.kotlin.elements.BasicMultipleInsertMethodGenerator;
 import org.mybatis.generator.runtime.kotlin.elements.BasicSelectManyMethodGenerator;
 import org.mybatis.generator.runtime.kotlin.elements.BasicSelectOneMethodGenerator;
-import org.mybatis.generator.runtime.kotlin.elements.BasicUpdateMethodGenerator;
 import org.mybatis.generator.runtime.kotlin.elements.ColumnListGenerator;
 import org.mybatis.generator.runtime.kotlin.elements.DeleteByPrimaryKeyMethodGenerator;
 import org.mybatis.generator.runtime.kotlin.elements.GeneralCountMethodGenerator;
@@ -66,19 +62,24 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
 
     protected KotlinDynamicSqlSupportClassGenerator supportClassGenerator;
 
+    protected boolean hasGeneratedKeys;
+
     public KotlinMapperAndExtensionsGenerator(String project) {
         super(project);
     }
 
     protected void preCalculate() {
-        supportClassGenerator = new KotlinDynamicSqlSupportClassGenerator(context, introspectedTable);
+        supportClassGenerator = new KotlinDynamicSqlSupportClassGenerator(context, introspectedTable, warnings);
         recordType = new FullyQualifiedKotlinType(introspectedTable.getKotlinRecordType());
         resultMapId = recordType.getShortNameWithoutTypeArguments() + "Result"; //$NON-NLS-1$
         fragmentGenerator = new KotlinFragmentGenerator.Builder()
                 .withIntrospectedTable(introspectedTable)
                 .withResultMapId(resultMapId)
                 .withDynamicSqlSupportClassGenerator(supportClassGenerator)
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .build();
+
+        hasGeneratedKeys = introspectedTable.getGeneratedKey().isPresent();
     }
 
     protected KotlinFile createMapperInterfaceFile() {
@@ -118,32 +119,12 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         return intf;
     }
 
-    protected void addBasicCountMethod(KotlinFile kotlinFile, KotlinType kotlinType) {
-        BasicCountMethodGenerator generator = new BasicCountMethodGenerator.Builder()
-                .withContext(context)
-                .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
-                .build();
-
-        generate(kotlinFile, kotlinType, generator);
-    }
-
-    protected void addBasicDeleteMethod(KotlinFile kotlinFile, KotlinType kotlinType) {
-        BasicDeleteMethodGenerator generator = new BasicDeleteMethodGenerator.Builder()
-                .withContext(context)
-                .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
-                .build();
-
-        generate(kotlinFile, kotlinType, generator);
-    }
-
     protected void addBasicInsertMethod(KotlinFile kotlinFile, KotlinType kotlinType) {
         BasicInsertMethodGenerator generator = new BasicInsertMethodGenerator.Builder()
                 .withContext(context)
                 .withFragmentGenerator(fragmentGenerator)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .withKotlinFile(kotlinFile)
                 .build();
@@ -151,42 +132,37 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         generate(kotlinFile, kotlinType, generator);
     }
 
-    protected void addBasicSelectManyMethod(KotlinFile kotlinFile, KotlinType kotlinType) {
+    protected boolean addBasicSelectManyMethod(KotlinFile kotlinFile, KotlinType kotlinType) {
         BasicSelectManyMethodGenerator generator = new BasicSelectManyMethodGenerator.Builder()
                 .withContext(context)
                 .withFragmentGenerator(fragmentGenerator)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .build();
 
-        generate(kotlinFile, kotlinType, generator);
+        return generate(kotlinFile, kotlinType, generator);
     }
 
-    protected void addBasicUpdateMethod(KotlinFile kotlinFile, KotlinType kotlinType) {
-        BasicUpdateMethodGenerator generator = new BasicUpdateMethodGenerator.Builder()
-                .withContext(context)
-                .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
-                .build();
-
-        generate(kotlinFile, kotlinType, generator);
-    }
-
-    protected void generate(KotlinFile kotlinFile, AbstractKotlinFunctionGenerator generator) {
+    protected boolean generate(KotlinFile kotlinFile, AbstractKotlinFunctionGenerator generator) {
         KotlinFunctionAndImports mi = generator.generateMethodAndImports();
         if (mi != null && generator.callPlugins(mi.getFunction(), kotlinFile)) {
             kotlinFile.addNamedItem(mi.getFunction());
             kotlinFile.addImports(mi.getImports());
+            return true;
         }
+        return false;
     }
 
-    protected void generate(KotlinFile kotlinFile, KotlinType kotlinType, AbstractKotlinFunctionGenerator generator) {
+    protected boolean generate(KotlinFile kotlinFile, KotlinType kotlinType,
+                               AbstractKotlinFunctionGenerator generator) {
         KotlinFunctionAndImports mi = generator.generateMethodAndImports();
         if (mi != null && generator.callPlugins(mi.getFunction(), kotlinFile)) {
             kotlinType.addNamedItem(mi.getFunction());
             kotlinFile.addImports(mi.getImports());
+            return true;
         }
+        return false;
     }
 
     @Override
@@ -198,30 +174,29 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         KotlinFile mapperFile = createMapperInterfaceFile();
         KotlinType mapper = createMapperInterface(mapperFile);
 
-        addBasicCountMethod(mapperFile, mapper);
-        addBasicDeleteMethod(mapperFile, mapper);
-        addBasicInsertMethod(mapperFile, mapper);
-        addBasicInsertMultipleMethod(mapperFile, mapper);
-        addBasicSelectOneMethod(mapperFile, mapper);
-        addBasicSelectManyMethod(mapperFile, mapper);
-        addBasicUpdateMethod(mapperFile, mapper);
+        if (hasGeneratedKeys) {
+            addBasicInsertMethod(mapperFile, mapper);
+            addBasicInsertMultipleMethod(mapperFile, mapper);
+        }
+
+        boolean reuseResultMap = addBasicSelectManyMethod(mapperFile, mapper);
+        addBasicSelectOneMethod(mapperFile, mapper, reuseResultMap);
 
         KotlinFile extensionsFile = createMapperExtensionsFile();
         String mapperName = mapper.getName();
 
-        addCountByExampleMethod(extensionsFile, mapperName);
-        addDeleteByExampleMethod(extensionsFile, mapperName);
+        addGeneralCountMethod(mapperFile, mapper, extensionsFile, mapperName);
+        addGeneralDeleteMethod(mapperFile, mapper, extensionsFile, mapperName);
         addDeleteByPrimaryKeyMethod(extensionsFile, mapperName);
-        addBasicInsertMultipleHelperMethod(extensionsFile, mapperName);
-        addInsertOneMethod(extensionsFile, mapperName);
-        addInsertMultipleMethod(extensionsFile, mapperName);
+        addInsertOneMethod(mapperFile, mapper, extensionsFile, mapperName);
+        addInsertMultipleMethod(mapperFile, mapper, extensionsFile, mapperName);
         addInsertMultipleVarargMethod(extensionsFile, mapperName);
-        addInsertSelectiveMethod(extensionsFile, mapperName);
+        addInsertSelectiveMethod(mapperFile, mapper, extensionsFile, mapperName);
         addColumnListProperty(extensionsFile);
-        addSelectByExampleMethod(extensionsFile, mapperName);
-        addSelectDistinctByExampleMethod(extensionsFile, mapperName);
+        addGeneralSelectMethod(extensionsFile, mapperName);
+        addSelectDistinctMethod(extensionsFile, mapperName);
         addSelectByPrimaryKeyMethod(extensionsFile, mapperName);
-        addUpdateByExampleMethod(extensionsFile, mapperName);
+        addGeneralUpdateMethod(mapperFile, mapper, extensionsFile, mapperName);
         addUpdateAllMethod(extensionsFile);
         addUpdateSelectiveMethod(extensionsFile);
         addUpdateByPrimaryKeyMethod(extensionsFile, mapperName);
@@ -230,12 +205,12 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         KotlinFile supportFile = supportClassGenerator.getKotlinFile();
 
         List<KotlinFile> answer = new ArrayList<>();
-        if (context.getPlugins().dynamicSqlSupportGenerated(supportFile, supportClassGenerator.getInnerObject(),
+        if (context.getPlugins().dynamicSqlSupportGenerated(supportFile, supportClassGenerator.getInnerClass(),
                 introspectedTable)) {
             answer.add(supportFile);
         }
 
-        if (context.getPlugins().mapperGenerated(mapperFile, introspectedTable)) {
+        if (context.getPlugins().mapperGenerated(mapperFile, mapper, introspectedTable)) {
             answer.add(mapperFile);
         }
 
@@ -246,60 +221,61 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         return answer;
     }
 
-    protected void addInsertOneMethod(KotlinFile kotlinFile, String mapperName) {
+    protected void addInsertOneMethod(KotlinFile mapperFile, KotlinType mapper, KotlinFile extensionsFile,
+                                      String mapperName) {
         InsertMethodGenerator generator = new InsertMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .withMapperName(mapperName)
-                .withTableFieldImport(supportClassGenerator.getInnerObjectImport())
+                .withSupportObjectImport(supportClassGenerator.getSupportObjectImport())
                 .build();
 
-        generate(kotlinFile, generator);
+        if (generate(extensionsFile, generator) && !hasGeneratedKeys) {
+            addCommonInsertInterface(mapperFile, mapper);
+        }
+    }
+
+    protected void addCommonInsertInterface(KotlinFile mapperFile, KotlinType mapper) {
+        mapper.addSuperType("CommonInsertMapper<" //$NON-NLS-1$
+                + recordType.getShortNameWithTypeArguments() + ">"); //$NON-NLS-1$
+        mapperFile.addImport("org.mybatis.dynamic.sql.util.mybatis3.CommonInsertMapper"); //$NON-NLS-1$
+        mapperFile.addImports(recordType.getImportList());
     }
 
     protected void addBasicInsertMultipleMethod(KotlinFile kotlinFile, KotlinType kotlinType) {
         BasicMultipleInsertMethodGenerator generator = new BasicMultipleInsertMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .build();
 
         generate(kotlinFile, kotlinType, generator);
     }
 
-    protected void addBasicInsertMultipleHelperMethod(KotlinFile kotlinFile, String mapperName) {
-        BasicMultipleInsertHelperMethodGenerator generator = new BasicMultipleInsertHelperMethodGenerator.Builder()
-                .withContext(context)
-                .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
-                .withRecordType(recordType)
-                .withMapperName(mapperName)
-                .build();
-
-        generate(kotlinFile, generator);
-    }
-
-    protected void addInsertMultipleMethod(KotlinFile kotlinFile, String mapperName) {
+    protected void addInsertMultipleMethod(KotlinFile mapperFile, KotlinType mapper, KotlinFile extensionsFile,
+                                           String mapperName) {
         InsertMultipleMethodGenerator generator = new InsertMultipleMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .withMapperName(mapperName)
-                .withTableFieldImport(supportClassGenerator.getInnerObjectImport())
+                .withSupportObjectImport(supportClassGenerator.getSupportObjectImport())
                 .build();
 
-        generate(kotlinFile, generator);
+        if (generate(extensionsFile, generator) && !hasGeneratedKeys) {
+            addCommonInsertInterface(mapperFile, mapper);
+        }
     }
 
     protected void addInsertMultipleVarargMethod(KotlinFile kotlinFile, String mapperName) {
         InsertMultipleVarargMethodGenerator generator = new InsertMultipleVarargMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .withMapperName(mapperName)
                 .build();
@@ -307,34 +283,45 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         generate(kotlinFile, generator);
     }
 
-    protected void addCountByExampleMethod(KotlinFile kotlinFile, String mapperName) {
+    protected void addGeneralCountMethod(KotlinFile mapperFile, KotlinType mapper, KotlinFile extensionsFile,
+                                         String mapperName) {
         GeneralCountMethodGenerator generator = new GeneralCountMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
-                .withTableFieldImport(supportClassGenerator.getInnerObjectImport())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
+                .withTableFieldImport(supportClassGenerator.getTablePropertyImport())
                 .withMapperName(mapperName)
                 .build();
 
-        generate(kotlinFile, generator);
+        if (generate(extensionsFile, generator)) {
+            // add common interface
+            mapper.addSuperType("CommonCountMapper"); //$NON-NLS-1$
+            mapperFile.addImport("org.mybatis.dynamic.sql.util.mybatis3.CommonCountMapper"); //$NON-NLS-1$
+        }
     }
 
-    protected void addDeleteByExampleMethod(KotlinFile kotlinFile, String mapperName) {
+    protected void addGeneralDeleteMethod(KotlinFile mapperFile, KotlinType mapper, KotlinFile extensionsFile,
+                                          String mapperName) {
         GeneralDeleteMethodGenerator generator = new GeneralDeleteMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withMapperName(mapperName)
                 .build();
 
-        generate(kotlinFile, generator);
+        if (generate(extensionsFile, generator)) {
+            // add common interface
+            mapper.addSuperType("CommonDeleteMapper"); //$NON-NLS-1$
+            mapperFile.addImport("org.mybatis.dynamic.sql.util.mybatis3.CommonDeleteMapper"); //$NON-NLS-1$
+        }
     }
 
     protected void addColumnListProperty(KotlinFile kotlinFile) {
         ColumnListGenerator generator = new ColumnListGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldImport(supportClassGenerator.getInnerObjectImport())
+                .withSupportObjectImport(supportClassGenerator.getSupportObjectImport())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .build();
 
         KotlinPropertyAndImports propertyAndImports = generator.generatePropertyAndImports();
@@ -345,23 +332,23 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         }
     }
 
-    protected void addSelectByExampleMethod(KotlinFile kotlinFile, String mapperName) {
+    protected void addGeneralSelectMethod(KotlinFile kotlinFile, String mapperName) {
         addGeneralSelectOneMethod(kotlinFile, mapperName);
         GeneralSelectMethodGenerator generator = new GeneralSelectMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withMapperName(mapperName)
                 .build();
 
         generate(kotlinFile, generator);
     }
 
-    protected void addSelectDistinctByExampleMethod(KotlinFile kotlinFile, String mapperName) {
+    protected void addSelectDistinctMethod(KotlinFile kotlinFile, String mapperName) {
         GeneralSelectDistinctMethodGenerator generator = new GeneralSelectDistinctMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withMapperName(mapperName)
                 .build();
 
@@ -372,29 +359,34 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         GeneralSelectOneMethodGenerator generator = new GeneralSelectOneMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withMapperName(mapperName)
                 .build();
 
         generate(kotlinFile, generator);
     }
 
-    protected void addUpdateByExampleMethod(KotlinFile kotlinFile, String mapperName) {
+    protected void addGeneralUpdateMethod(KotlinFile mapperFile, KotlinType mapper, KotlinFile extensionsFile,
+                                          String mapperName) {
         GeneralUpdateMethodGenerator generator = new GeneralUpdateMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withMapperName(mapperName)
                 .build();
 
-        generate(kotlinFile, generator);
+        if (generate(extensionsFile, generator)) {
+            // add common interface
+            mapper.addSuperType("CommonUpdateMapper"); //$NON-NLS-1$
+            mapperFile.addImport("org.mybatis.dynamic.sql.util.mybatis3.CommonUpdateMapper"); //$NON-NLS-1$
+        }
     }
 
     protected void addUpdateAllMethod(KotlinFile kotlinFile) {
         UpdateAllColumnsMethodGenerator generator = new UpdateAllColumnsMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withFragmentGenerator(fragmentGenerator)
                 .withRecordType(recordType)
                 .build();
@@ -406,7 +398,7 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         UpdateSelectiveColumnsMethodGenerator generator = new UpdateSelectiveColumnsMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withFragmentGenerator(fragmentGenerator)
                 .withRecordType(recordType)
                 .build();
@@ -414,14 +406,15 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
         generate(kotlinFile, generator);
     }
 
-    protected void addBasicSelectOneMethod(KotlinFile kotlinFile, KotlinType kotlinType) {
+    protected void addBasicSelectOneMethod(KotlinFile kotlinFile, KotlinType kotlinType, boolean reuseResultMap) {
         BasicSelectOneMethodGenerator generator = new BasicSelectOneMethodGenerator.Builder()
                 .withContext(context)
                 .withFragmentGenerator(fragmentGenerator)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .withResultMapId(resultMapId)
+                .withReuseResultMap(reuseResultMap)
                 .build();
 
         generate(kotlinFile, kotlinType, generator);
@@ -432,24 +425,27 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
                 .withFragmentGenerator(fragmentGenerator)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withMapperName(mapperName)
                 .build();
 
         generate(kotlinFile, generator);
     }
 
-    protected void addInsertSelectiveMethod(KotlinFile kotlinFile, String mapperName) {
+    protected void addInsertSelectiveMethod(KotlinFile mapperFile, KotlinType mapper, KotlinFile extensionsFile,
+                                            String mapperName) {
         InsertSelectiveMethodGenerator generator = new InsertSelectiveMethodGenerator.Builder()
                 .withContext(context)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .withMapperName(mapperName)
-                .withTableFieldImport(supportClassGenerator.getInnerObjectImport())
+                .withSupportObjectImport(supportClassGenerator.getSupportObjectImport())
                 .build();
 
-        generate(kotlinFile, generator);
+        if (generate(extensionsFile, generator) && !hasGeneratedKeys) {
+            addCommonInsertInterface(mapperFile, mapper);
+        }
     }
 
     protected void addSelectByPrimaryKeyMethod(KotlinFile kotlinFile, String mapperName) {
@@ -457,7 +453,7 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
                 .withContext(context)
                 .withFragmentGenerator(fragmentGenerator)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withMapperName(mapperName)
                 .build();
 
@@ -469,7 +465,7 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
                 .withContext(context)
                 .withFragmentGenerator(fragmentGenerator)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .withMapperName(mapperName)
                 .build();
@@ -483,7 +479,7 @@ public class KotlinMapperAndExtensionsGenerator extends AbstractKotlinGenerator 
                 .withContext(context)
                 .withFragmentGenerator(fragmentGenerator)
                 .withIntrospectedTable(introspectedTable)
-                .withTableFieldName(supportClassGenerator.getInnerObject().getName())
+                .withTableFieldName(supportClassGenerator.getTablePropertyName())
                 .withRecordType(recordType)
                 .withMapperName(mapperName)
                 .build();
